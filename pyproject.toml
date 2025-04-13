@@ -1,7 +1,7 @@
 [project]
-name = "campus-search"
+name = "uulm-utils"
 version = "0.1.0"
-description = "Add your description here"
+description = "Collection of helpers for Ulm University"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

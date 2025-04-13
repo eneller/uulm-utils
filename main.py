@@ -1,12 +1,13 @@
-from enum import Enum
 import asyncclick as click
 import questionary
 from playwright.async_api import async_playwright, Playwright
 
+from enum import Enum
 import asyncio
 from time import sleep
 
 
+CORONANG_VERSION='v1.8.00'
 Selection = Enum('Selection', ['TREE_WALK', 'TREE_LEAF', 'ITEM_SELECTED'])
 
 async def selection_or_walk(options):
