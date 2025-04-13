@@ -38,7 +38,7 @@ async def run_playwright(headless: bool):
 @click.option('--debug', '-d', is_flag=True, help='Set the log level to DEBUG')
 @click.pass_context
 async def cli(ctx, username, password, headful, debug):
-    logging.basicConfig(level=logging.ERROR,format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.WARNING,format='%(asctime)s - %(levelname)s - %(message)s')
     if(debug): logger.setLevel(logging.DEBUG)
     ctx.ensure_object(dict)
     if ctx.invoked_subcommand != 'grades':
@@ -70,6 +70,10 @@ async def coronang(ctx):
     async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
         click.echo("Running coronang...")
         await page.goto("https://campusonline.uni-ulm.de/CoronaNG/user/mycorona.html")
+        version = await page.locator("css=#mblock_innen > a:nth-child(1)").inner_text()
+        if(version != CORONANG_VERSION):
+            logger.warning('Read CoronaNG version %s. Last tested version is %s. Please use --headful flag to ensure that everything is working.',
+                           version, CORONANG_VERSION)
         await page.locator("input[name=\"uid\"]").click()
         await page.locator("input[name=\"uid\"]").fill(ctx.obj['USERNAME'])
         await page.locator("input[name=\"password\"]").click()
