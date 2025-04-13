@@ -1,13 +1,20 @@
-import asyncio
-from time import sleep
+import asyncclick as click
 import questionary
 from playwright.async_api import async_playwright, Playwright
-import re
 
-async def run(playwright: Playwright) -> None:
-    username = await questionary.text('Enter your kiz username:').ask_async()
-    password = await questionary.password('Enter your kiz password:').ask_async()
-    browser = await playwright.chromium.launch(headless=False)
+import re
+import asyncio
+from time import sleep
+
+async def run(
+        playwright: Playwright,
+        username,
+        password,
+        headless:bool,
+        ) -> None:
+    if not username: username = await questionary.text('Enter your kiz username:').ask_async()
+    if not password: password = await questionary.password('Enter your kiz password:').ask_async()
+    browser = await playwright.chromium.launch(headless=headless)
     context = await browser.new_context()
     page = await context.new_page()
     await page.goto("https://campusonline.uni-ulm.de")
@@ -34,9 +41,12 @@ async def run(playwright: Playwright) -> None:
     await context.close()
     await browser.close()
 
-async def main():
+@click.command()
+@click.option('--username','-u')
+@click.option('--password','-p')
+async def main(username, password):
     async with async_playwright() as playwright:
-        await run(playwright)
+        await run(playwright, username, password, True)
 
 if __name__ == "__main__":
     asyncio.run(main())
