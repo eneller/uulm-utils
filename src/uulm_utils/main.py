@@ -38,7 +38,7 @@ async def cli(ctx, username, password, headful):
     ctx.obj['PASSWORD'] = password or await questionary.password('Enter your kiz password:').ask_async()
     ctx.obj['HEADLESS'] = not headful
 
-@cli.command(help='Interact with the Module Tree in Campusonline')
+@cli.command(help='Interact with the module tree in Campusonline')
 @click.pass_context
 async def campusonline(ctx):
     async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):

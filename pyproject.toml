@@ -10,3 +10,5 @@ dependencies = [
     "playwright>=1.51.0",
     "questionary>=2.1.0",
 ]
+[project.scripts]
+uulm = "uulm_utils.main:cli"
