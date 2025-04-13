@@ -6,6 +6,15 @@ import re
 import asyncio
 from time import sleep
 
+async def selection_or_walk(options):
+    options = list(map(str.strip, options))
+    walkstr = 'Walk the Tree from here'
+    options.append(walkstr)
+    selection = await questionary.select(choices=options, message='Select one of the following options').ask_async()
+    if selection == walkstr: return None
+    return selection
+
+
 async def run(
         playwright: Playwright,
         username,
@@ -24,6 +33,11 @@ async def run(
     await page.get_by_role("button", name="Anmelden").click()
     await page.get_by_role("link", name="Studium").click()
     await page.get_by_role("link", name="Modulbeschreibungen ansehen").click()
+    options = await page.locator('css=li.treelist').all_inner_texts()
+    selection = await selection_or_walk(options)
+    print(selection)
+    sleep(20)
+    exit(0)
     await page.get_by_text("Modulbeschreibungen Bitte wä").click()
     await page.get_by_role("link", name="Module für Abschluss: Master of Science").click()
     await page.get_by_text("Modulbeschreibungen Sie").click()
@@ -44,9 +58,10 @@ async def run(
 @click.command()
 @click.option('--username','-u')
 @click.option('--password','-p')
-async def main(username, password):
+@click.option('--headful', is_flag=True)
+async def main(username, password, headful):
     async with async_playwright() as playwright:
-        await run(playwright, username, password, True)
+        await run(playwright, username, password, headless=not headful)
 
 if __name__ == "__main__":
     asyncio.run(main())
