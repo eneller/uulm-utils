@@ -1,6 +1,7 @@
 import asyncclick as click
 import questionary
 from playwright.async_api import async_playwright, Playwright
+import pandas as pd
 
 from enum import Enum
 import asyncio
@@ -34,9 +35,10 @@ async def run_playwright(headless: bool):
 @click.pass_context
 async def cli(ctx, username, password, headful):
     ctx.ensure_object(dict)
-    ctx.obj['USERNAME'] = username or await questionary.text('Enter your kiz username:').ask_async()
-    ctx.obj['PASSWORD'] = password or await questionary.password('Enter your kiz password:').ask_async()
-    ctx.obj['HEADLESS'] = not headful
+    if ctx.invoked_subcommand != 'grades':
+        ctx.obj['USERNAME'] = username or await questionary.text('Enter your kiz username:').ask_async()
+        ctx.obj['PASSWORD'] = password or await questionary.password('Enter your kiz password:').ask_async()
+        ctx.obj['HEADLESS'] = not headful
 
 @cli.command(help='Interact with the module tree in Campusonline')
 @click.pass_context
@@ -73,6 +75,28 @@ async def coronang(ctx):
         await page.get_by_role("cell", name="An Markierten teilnehmen Ausf").get_by_role("button").click()
         await page.reload()
         click.echo("Finished coronang.")
+
+@cli.command(help='Calculate your weighted grade from a CSV using the best n ECTS')
+@click.argument('filename', type=click.Path(exists=True))
+@click.option('--target_lp', '-t', type=int, default=74, help='Target number of n ECTS needed')
+def grades(filename, target_lp:int):
+    data = pd.read_csv(filename)
+    data.sort_values(by='note', inplace=True)
+
+    acc_note: float = 0.0
+    acc_lp = 0
+    # the use of iterrows and all iteration over dataframes is discouraged for performance reasons
+    for _ , row in data.iterrows():
+        if acc_lp + row['lp'] < target_lp:
+            acc_lp += row['lp']
+            acc_note: float = acc_note + row['lp'] * row['note']
+        else:
+            weight = target_lp - acc_lp
+            acc_lp += weight
+            acc_note = acc_note + weight * row['note']
+            break
+    acc_note: float = acc_note / acc_lp
+    print(acc_note)
 
 if __name__ == "__main__":
     asyncio.run(cli.main())
