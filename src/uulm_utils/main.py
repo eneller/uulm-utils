@@ -111,11 +111,13 @@ async def coronang(ctx, target_times, before):
                 if dtime_before < timedelta(0):
                     # login necessary?
                     if (await page.locator("input[name=\"uid\"]").count()) >0:
+                        logger.debug('Logging in')
                         await page.locator("input[name=\"uid\"]").click()
                         await page.locator("input[name=\"uid\"]").fill(ctx.obj['USERNAME'])
                         await page.locator("input[name=\"password\"]").click()
                         await page.locator("input[name=\"password\"]").fill(ctx.obj['PASSWORD'])
                         await page.get_by_role("button", name="Anmelden").click()
+                        logger.debug('Loading Overview Page')
                         await page.goto(CORONANG_URL)
                         await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("button").click()
                         await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("combobox").select_option("5")
