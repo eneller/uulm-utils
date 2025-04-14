@@ -2,6 +2,8 @@ import asyncclick as click
 import questionary
 from playwright.async_api import async_playwright, Playwright
 import pandas as pd
+from dotenv import load_dotenv
+
 
 from enum import Enum
 import asyncio
@@ -10,9 +12,9 @@ import logging
 from datetime import datetime
 
 
+load_dotenv()  # take environment variables
 logger = logging.getLogger(__name__)
 
-CORONANG_VERSION='v1.8.00'
 Selection = Enum('Selection', ['TREE_WALK', 'TREE_LEAF', 'ITEM_SELECTED'])
 
 async def selection_or_walk(options):
@@ -33,19 +35,25 @@ async def run_playwright(headless: bool):
         await browser.close()
 
 @click.group()
-@click.option('--username','-u')
-@click.option('--password','-p')
+@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
+@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
 @click.option('--headful', is_flag=True, help='Show the browser window')
 @click.option('--debug', '-d', is_flag=True, help='Set the log level to DEBUG')
 @click.pass_context
 async def cli(ctx, username, password, headful, debug):
+    '''
+    Passing username and password is supported through multiple ways
+    as entering your password visibly into your shell history is discouraged for security reasons. 
+
+    \b
+    - using environment variables `UULM_USERNAME`, `UULM_PASSWORD`
+    - using a `.env` file in the current working directory with the same variables 
+    - interactive mode, if none of the above was specified
+    '''
     logging.basicConfig(level=logging.WARNING,format='%(asctime)s - %(levelname)s - %(message)s')
     if(debug): logger.setLevel(logging.DEBUG)
     ctx.ensure_object(dict)
-    if ctx.invoked_subcommand != 'grades':
-        ctx.obj['USERNAME'] = username or await questionary.text('Enter your kiz username:').ask_async()
-        ctx.obj['PASSWORD'] = password or await questionary.password('Enter your kiz password:').ask_async()
-        ctx.obj['HEADLESS'] = not headful
+    ctx.obj['HEADLESS'] = not headful
 
 @cli.command()
 @click.pass_context
@@ -65,17 +73,18 @@ async def campusonline(ctx):
         selection = await selection_or_walk(options)
         print(selection)
         sleep(2)
+        raise NotImplementedError
 
 @cli.command()
-@click.argument('times', nargs=-1, required=True)
+@click.argument('target_times', nargs=-1, type=click.DateTime( ['%H:%M:%S']), required=True)
 @click.option('--before', '-b', type=int, default=10, help='How many seconds before the target time to start')
 @click.pass_context
-async def coronang(ctx, times, before):
+async def coronang(ctx, target_times, before):
     '''
     Automatically register for courses on CoronaNG by specifying one or more timestamps of the format "HH:MM:SS".
     Please beware that CoronaNG only allows one active session at all times.
     '''
-    target_times = sorted([datetime.strptime(t, "%H:%M:%S") for t in times])
+    CORONANG_VERSION='v1.8.00'
     logger.info('Parsed input times as %s', target_times)
     async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
         await page.goto("https://campusonline.uni-ulm.de/CoronaNG/user/mycorona.html")
@@ -90,7 +99,7 @@ async def coronang(ctx, times, before):
                 server_time = datetime.strptime(server_str.split().pop(), "%H:%M:%S")
                 break
 
-        exit()
+        raise NotImplementedError
         await page.locator("input[name=\"uid\"]").click()
         await page.locator("input[name=\"uid\"]").fill(ctx.obj['USERNAME'])
         await page.locator("input[name=\"password\"]").click()
@@ -101,6 +110,23 @@ async def coronang(ctx, times, before):
         await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("combobox").select_option("5")
         await page.get_by_role("cell", name="An Markierten teilnehmen Ausf").get_by_role("button").click()
         await page.reload()
+
+@cli.command()
+@click.argument('target_times', nargs=-1, type=click.DateTime( ["%H:%M:%S"]), required=True)
+@click.option('--target_course', '-t', multiple=True, required=True, help='Unique course name to register for. Can be passed multiple times')
+@click.option('--before', '-b', type=int, default=10, help='How many seconds before the target time to start')
+@click.pass_context
+async def sport(ctx, target_times, target_course, before):
+    '''
+    Automatically register for courses on the AktivKonzepte Hochschulsport Platform
+    by specifying one or more timestamps of the format "HH:MM:SS".
+    '''
+    print(target_course)
+    # TODO Check Version in HTML Head
+    logger.info('Parsed input times as %s', target_times)
+    async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
+        pass
+    raise NotImplementedError
 
 @cli.command()
 @click.argument('filename', type=click.Path(exists=True))
