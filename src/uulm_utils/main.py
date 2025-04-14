@@ -7,6 +7,7 @@ from enum import Enum
 import asyncio
 from time import sleep
 import logging
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -46,11 +47,13 @@ async def cli(ctx, username, password, headful, debug):
         ctx.obj['PASSWORD'] = password or await questionary.password('Enter your kiz password:').ask_async()
         ctx.obj['HEADLESS'] = not headful
 
-@cli.command(help='Interact with the module tree in Campusonline')
+@cli.command()
 @click.pass_context
 async def campusonline(ctx):
+    '''
+    Interact with the module tree in Campusonline.
+    '''
     async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
-        click.echo("Running campusonline...")
         await page.goto("https://campusonline.uni-ulm.de")
         await page.get_by_role("textbox", name="Benutzerkennung").click()
         await page.get_by_role("textbox", name="Benutzerkennung").fill(ctx.obj['USERNAME'])
@@ -62,18 +65,32 @@ async def campusonline(ctx):
         selection = await selection_or_walk(options)
         print(selection)
         sleep(2)
-        click.echo("Finished campusonline.")
 
-@cli.command(help='Automatically register for courses on CoronaNG')
+@cli.command()
+@click.argument('times', nargs=-1, required=True)
+@click.option('--before', '-b', type=int, default=10, help='How many seconds before the target time to start')
 @click.pass_context
-async def coronang(ctx):
+async def coronang(ctx, times, before):
+    '''
+    Automatically register for courses on CoronaNG by specifying one or more timestamps of the format "HH:MM:SS".
+    Please beware that CoronaNG only allows one active session at all times.
+    '''
+    target_times = sorted([datetime.strptime(t, "%H:%M:%S") for t in times])
+    logger.info('Parsed input times as %s', target_times)
     async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
-        click.echo("Running coronang...")
         await page.goto("https://campusonline.uni-ulm.de/CoronaNG/user/mycorona.html")
-        version = await page.locator("css=#mblock_innen > a:nth-child(1)").inner_text()
-        if(version != CORONANG_VERSION):
+        server_version = await page.locator("css=#mblock_innen > a:nth-child(1)").inner_text()
+        if(server_version != CORONANG_VERSION):
             logger.warning('Read CoronaNG version %s. Last tested version is %s. Please use --headful flag to ensure that everything is working.',
-                           version, CORONANG_VERSION)
+                           server_version, CORONANG_VERSION)
+
+        for target_time in target_times:
+            while True:
+                server_str = await page.locator("css=#mblock_innen").inner_text()
+                server_time = datetime.strptime(server_str.split().pop(), "%H:%M:%S")
+                break
+
+        exit()
         await page.locator("input[name=\"uid\"]").click()
         await page.locator("input[name=\"uid\"]").fill(ctx.obj['USERNAME'])
         await page.locator("input[name=\"password\"]").click()
@@ -84,12 +101,15 @@ async def coronang(ctx):
         await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("combobox").select_option("5")
         await page.get_by_role("cell", name="An Markierten teilnehmen Ausf").get_by_role("button").click()
         await page.reload()
-        click.echo("Finished coronang.")
 
-@cli.command(help='''Calculate your weighted grade using the best n credits. Expects a csv with the columns name, grade, credits''')
+@cli.command()
 @click.argument('filename', type=click.Path(exists=True))
 @click.option('--target_lp', '-t', type=int, default=74, help='Target number of n credits needed')
 def grades(filename, target_lp:int):
+    '''
+    Calculate your weighted grade using the best n credits.
+    Expects a csv with the columns "name, grade, credits".
+    '''
     data = pd.read_csv(filename)
     data.sort_values(by='grade', inplace=True)
 
