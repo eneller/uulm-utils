@@ -101,11 +101,13 @@ async def coronang(ctx, target_times, before):
         # iterate over staggered login
         for target_time in target_times:
             # wait for execution
-            while True:
+            done = False
+            while not done:
                 server_str = await page.locator("css=#mblock_innen").inner_text()
                 server_time = datetime.strptime(server_str.split().pop(), "%H:%M:%S")
                 dtime = target_time -server_time
                 dtime_before = dtime - before_seconds
+                dtime_after = dtime + before_seconds
                 logger.debug('Server Time: %s, delta: %s', server_time, dtime_before)
                 # execute
                 if dtime_before < timedelta(0):
@@ -122,7 +124,14 @@ async def coronang(ctx, target_times, before):
                         await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("button").click()
                         await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("combobox").select_option("5")
                         await page.get_by_role("cell", name="An Markierten teilnehmen Ausf").get_by_role("button").click()
-                    await page.reload()
+                    if dtime_after < timedelta(0):
+                        logger.debug('Iteration for time %s over', target_time.time())
+                        break
+                # not in time window?
+                else:
+                    await asyncio.sleep(1)
+                logger.debug('Resending')
+                await page.reload()
     return
 
 @cli.command()
