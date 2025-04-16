@@ -22,13 +22,12 @@ Usage: uulm [OPTIONS] COMMAND [ARGS]...
   reasons.
 
   - using environment variables `UULM_USERNAME`, `UULM_PASSWORD`
-  - using a `.env` file in the current working directory with the same variables 
+  - using a `.env` file in the current working directory with the same variables
   - interactive mode, if none of the above were specified
 
+  For help concerning specific commands, run `uulm <COMMAND> --help`
+
 Options:
-  -u, --username TEXT
-  -p, --password TEXT
-  -h, --headless                  Dont show the browser window
   -d, --debug                     Set the log level to DEBUG
   -l, --log-level [CRITICAL|FATAL|ERROR|WARN|WARNING|INFO|DEBUG|NOTSET]
   --help                          Show this message and exit.

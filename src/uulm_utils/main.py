@@ -52,6 +52,9 @@ async def cli(debug, log_level):
     - using environment variables `UULM_USERNAME`, `UULM_PASSWORD`
     - using a `.env` file in the current working directory with the same variables
     - interactive mode, if none of the above were specified
+    
+    \b
+    For help concerning specific commands, run `uulm <COMMAND> --help`
     '''
     logging.basicConfig(level=log_level,format='%(asctime)s - %(levelname)s - %(message)s')
     if(debug): logger.setLevel(logging.DEBUG)
