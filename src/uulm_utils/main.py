@@ -35,40 +35,34 @@ async def run_playwright(headless: bool):
         await browser.close()
 
 @click.group()
-@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
-@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
-@click.option('--headful', is_flag=True, help='Show the browser window')
 @click.option('--debug', '-d', is_flag=True, help='Set the log level to DEBUG')
 @click.option('--log-level', '-l', type=click.Choice(logging.getLevelNamesMapping().keys()),default = 'INFO')
-@click.pass_context
-async def cli(ctx, username, password, headful, debug, log_level):
+async def cli(debug, log_level):
     '''
     Passing username and password is supported through multiple ways
     as entering your password visibly into your shell history is discouraged for security reasons. 
 
     \b
     - using environment variables `UULM_USERNAME`, `UULM_PASSWORD`
-    - using a `.env` file in the current working directory with the same variables 
-    - interactive mode, if none of the above was specified
+    - using a `.env` file in the current working directory with the same variables
+    - interactive mode, if none of the above were specified
     '''
     logging.basicConfig(level=log_level,format='%(asctime)s - %(levelname)s - %(message)s')
     if(debug): logger.setLevel(logging.DEBUG)
-    ctx.ensure_object(dict)
-    ctx.obj['HEADLESS'] = not headful
-    ctx.obj['USERNAME'] = username
-    ctx.obj['PASSWORD'] = password
 
 @cli.command()
-@click.pass_context
-async def campusonline(ctx):
+@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
+@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
+@click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')
+async def campusonline(username, password, headless):
     '''
     Interact with the module tree in Campusonline.
     '''
-    async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
+    async for page, browser, context in run_playwright(headless):
         await page.goto("https://campusonline.uni-ulm.de")
         await page.get_by_role("textbox", name="Benutzerkennung").click()
-        await page.get_by_role("textbox", name="Benutzerkennung").fill(ctx.obj['USERNAME'])
-        await page.get_by_role("textbox", name="Passwort").fill(ctx.obj['PASSWORD'])
+        await page.get_by_role("textbox", name="Benutzerkennung").fill(username)
+        await page.get_by_role("textbox", name="Passwort").fill(password)
         await page.get_by_role("button", name="Anmelden").click()
         await page.get_by_role("link", name="Studium").click()
         await page.get_by_role("link", name="Modulbeschreibungen ansehen").click()
@@ -80,9 +74,11 @@ async def campusonline(ctx):
 
 @cli.command()
 @click.argument('target_times', nargs=-1, type=click.DateTime( ['%H:%M:%S']), required=True)
-@click.option('--before', '-b', type=int, default=10, help='How many seconds before the target time to start')
-@click.pass_context
-async def coronang(ctx, target_times, before):
+@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
+@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
+@click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')
+@click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send')
+async def coronang(target_times, username, password, headless, offset):
     '''
     Automatically register for courses on CoronaNG by specifying one or more timestamps of the format "HH:MM:SS".
     Please beware that CoronaNG only allows one active session at all times.
@@ -90,9 +86,9 @@ async def coronang(ctx, target_times, before):
     CORONANG_VERSION='v1.8.00'
     CORONANG_URL="https://campusonline.uni-ulm.de/CoronaNG/user/mycorona.html"
     logger.debug('Parsed input times as %s', target_times)
-    before_seconds = timedelta(seconds=before)
+    before_seconds = timedelta(seconds=offset)
     target_times = sorted(list(target_times))
-    async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
+    async for page, browser, context in run_playwright(headless):
         loop = asyncio.get_event_loop()
         await page.goto(CORONANG_URL)
         server_version = await page.locator("css=#mblock_innen > a:nth-child(1)").inner_text()
@@ -112,6 +108,7 @@ async def coronang(ctx, target_times, before):
                 logger.debug('Server Time: %s, delta: %s', server_time.time(), dtime_before)
                 # window started?
                 if dtime_before < timedelta(0):
+                    time_start = loop.time()
                     time_prev = loop.time()
                     i = 0
                     # spamming loop
@@ -125,9 +122,9 @@ async def coronang(ctx, target_times, before):
                         if (await page.locator("input[name=\"uid\"]").count()) >0:
                             logger.info('Logging in')
                             await page.locator("input[name=\"uid\"]").click()
-                            await page.locator("input[name=\"uid\"]").fill(ctx.obj['USERNAME'])
+                            await page.locator("input[name=\"uid\"]").fill(username)
                             await page.locator("input[name=\"password\"]").click()
-                            await page.locator("input[name=\"password\"]").fill(ctx.obj['PASSWORD'])
+                            await page.locator("input[name=\"password\"]").fill(password)
                             await page.get_by_role("button", name="Anmelden").click()
                             logger.info('Loading Overview Page')
                             await page.goto(CORONANG_URL)
@@ -136,8 +133,8 @@ async def coronang(ctx, target_times, before):
                             await page.get_by_role("cell", name="An Markierten teilnehmen Ausf").get_by_role("button").click()
                             await page.reload()
                         # window ended?
-                        # NOTE replace this with local time when spamming POST requests?
-                        if dtime_after < timedelta(0):
+                        # check window of offset before and after target
+                        if loop.time() - 2 * offset > time_start:
                             break
                         # spam reload
                         # TODO set timeout, tweak
@@ -156,9 +153,11 @@ async def coronang(ctx, target_times, before):
 @cli.command()
 @click.argument('target_times', nargs=-1, type=click.DateTime( ["%H:%M:%S"]), required=True)
 @click.option('--target_course', '-t', multiple=True, required=True, help='Unique course name to register for. Can be passed multiple times')
-@click.option('--before', '-b', type=int, default=10, help='How many seconds before the target time to start')
-@click.pass_context
-async def sport(ctx, target_times, target_course, before):
+@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
+@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
+@click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')
+@click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send')
+async def sport(target_times, target_course, username, password, headless, offset):
     '''
     Automatically register for courses on the AktivKonzepte Hochschulsport Platform
     by specifying one or more timestamps of the format "HH:MM:SS".
@@ -166,9 +165,9 @@ async def sport(ctx, target_times, target_course, before):
     print(target_course)
     # TODO Check Version in HTML Head of Kursliste
     logger.debug('Parsed input times as %s', target_times)
-    before_seconds = timedelta(seconds=before)
+    before_seconds = timedelta(seconds=offset)
     target_times = sorted(list(target_times))
-    async for page, browser, context in run_playwright(ctx.obj['HEADLESS']):
+    async for page, browser, context in run_playwright(headless):
         pass
     return
 
