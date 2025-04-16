@@ -1,3 +1,4 @@
+from typing import cast
 import asyncclick as click
 import questionary
 from playwright.async_api import Page, async_playwright
@@ -40,6 +41,10 @@ def browser_options(f):
     f = click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')(f)
     return f
 
+def fcfs_options(f):
+    f = click.argument('target_times', nargs=-1, type=click.DateTime( ['%H:%M','%H:%M:%S']), required=True)(f)
+    return f
+
 @click.group()
 @click.option('--debug', '-d', is_flag=True, help='Set the log level to DEBUG')
 @click.option('--log-level', '-l', type=click.Choice(logging.getLevelNamesMapping().keys()),default = 'INFO')
@@ -80,7 +85,7 @@ async def campusonline(username, password, headless):
     return
 
 @cli.command()
-@click.argument('target_times', nargs=-1, type=click.DateTime( ['%H:%M:%S']), required=True)
+@fcfs_options
 @browser_options
 @click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send')
 async def coronang(target_times, username, password, headless, offset):
@@ -107,7 +112,7 @@ async def coronang(target_times, username, password, headless, offset):
             while True:
                 server_str = await page.locator("css=#mblock_innen").inner_text()
                 server_time = datetime.strptime(server_str.split().pop(), "%H:%M:%S")
-                dtime = target_time -server_time
+                dtime = cast(timedelta, target_time -server_time )
                 dtime_before = dtime - before_seconds
                 logger.debug('Server Time: %s, delta: %s', server_time.time(), dtime_before)
                 # window started?
@@ -155,7 +160,7 @@ async def coronang(target_times, username, password, headless, offset):
     return
 
 @cli.command()
-@click.argument('target_times', nargs=-1, type=click.DateTime( ["%H:%M:%S"]), required=True)
+@fcfs_options
 @click.option('--target_course', '-t', multiple=True, required=True, help='Unique course name to register for. Can be passed multiple times')
 @browser_options
 @click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send')
