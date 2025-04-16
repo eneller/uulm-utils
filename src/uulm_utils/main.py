@@ -149,7 +149,7 @@ async def coronang(ctx, target_times, before):
                 # not in time window?
                 else:
                     await asyncio.sleep(1)
-                    logger.info('Waiting for event window. Reloading')
+                    logger.info('Reloading to wait for event window in %s, %s before submission starts', dtime_before, dtime)
                     await page.reload()
     return
 
@@ -164,7 +164,7 @@ async def sport(ctx, target_times, target_course, before):
     by specifying one or more timestamps of the format "HH:MM:SS".
     '''
     print(target_course)
-    # TODO Check Version in HTML Head
+    # TODO Check Version in HTML Head of Kursliste
     logger.debug('Parsed input times as %s', target_times)
     before_seconds = timedelta(seconds=before)
     target_times = sorted(list(target_times))
