@@ -34,6 +34,12 @@ async def run_playwright(headless: bool):
         await context.close()
         await browser.close()
 
+def browser_options(f):
+    f = click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')(f)
+    f = click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)(f)
+    f = click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')(f)
+    return f
+
 @click.group()
 @click.option('--debug', '-d', is_flag=True, help='Set the log level to DEBUG')
 @click.option('--log-level', '-l', type=click.Choice(logging.getLevelNamesMapping().keys()),default = 'INFO')
@@ -51,9 +57,7 @@ async def cli(debug, log_level):
     if(debug): logger.setLevel(logging.DEBUG)
 
 @cli.command()
-@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
-@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
-@click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')
+@browser_options
 async def campusonline(username, password, headless):
     '''
     Interact with the module tree in Campusonline.
@@ -74,9 +78,7 @@ async def campusonline(username, password, headless):
 
 @cli.command()
 @click.argument('target_times', nargs=-1, type=click.DateTime( ['%H:%M:%S']), required=True)
-@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
-@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
-@click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')
+@browser_options
 @click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send')
 async def coronang(target_times, username, password, headless, offset):
     '''
@@ -104,7 +106,6 @@ async def coronang(target_times, username, password, headless, offset):
                 server_time = datetime.strptime(server_str.split().pop(), "%H:%M:%S")
                 dtime = target_time -server_time
                 dtime_before = dtime - before_seconds
-                dtime_after = dtime + before_seconds
                 logger.debug('Server Time: %s, delta: %s', server_time.time(), dtime_before)
                 # window started?
                 if dtime_before < timedelta(0):
@@ -153,9 +154,7 @@ async def coronang(target_times, username, password, headless, offset):
 @cli.command()
 @click.argument('target_times', nargs=-1, type=click.DateTime( ["%H:%M:%S"]), required=True)
 @click.option('--target_course', '-t', multiple=True, required=True, help='Unique course name to register for. Can be passed multiple times')
-@click.option('--username','-u', envvar='UULM_USERNAME', prompt='Enter your kiz username:')
-@click.option('--password','-p', envvar='UULM_PASSWORD', prompt='Enter your kiz password:', hide_input=True)
-@click.option('--headless', '-h', is_flag=True, help='Dont show the browser window')
+@browser_options
 @click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send')
 async def sport(target_times, target_course, username, password, headless, offset):
     '''
