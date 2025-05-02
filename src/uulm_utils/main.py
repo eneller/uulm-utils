@@ -29,9 +29,7 @@ async def run_playwright(headless: bool):
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=headless)
         context = await browser.new_context()
-        page = await context.new_page()
-        yield page, browser, context
-        await page.close()
+        yield browser, context
         await context.close()
         await browser.close()
 
@@ -70,7 +68,8 @@ async def campusonline(username, password, headless):
     '''
     Interact with the module tree in Campusonline.
     '''
-    async for page, browser, context in run_playwright(headless):
+    async for browser, context in run_playwright(headless):
+        page = await context.new_page()
         await page.goto("https://campusonline.uni-ulm.de")
         await page.get_by_role("textbox", name="Benutzerkennung").click()
         await page.get_by_role("textbox", name="Benutzerkennung").fill(username)
@@ -98,7 +97,8 @@ async def coronang(target_times, username, password, headless, offset):
     logger.debug('Parsed input times as %s', target_times)
     before_seconds = timedelta(seconds=offset)
     target_times = sorted(list(target_times))
-    async for page, browser, context in run_playwright(headless):
+    async for browser, context in run_playwright(headless):
+        page = await context.new_page()
         loop = asyncio.get_event_loop()
         await page.goto(CORONANG_URL)
         server_version = await page.locator("css=#mblock_innen > a:nth-child(1)").inner_text()
@@ -174,8 +174,11 @@ async def sport(target_times, target_course, username, password, headless, offse
     logger.debug('Parsed input times as %s', target_times)
     before_seconds = timedelta(seconds=offset)
     target_times = sorted(list(target_times))
-    async for page, browser, context in run_playwright(headless):
-        pass
+    async for browser, context in run_playwright(headless):
+        pages = [await context.new_page() for _ in target_course ]
+        for course, page in zip(target_course, pages):
+            await page.goto(course)
+        await asyncio.sleep(20)
     return
 
 @cli.command()
