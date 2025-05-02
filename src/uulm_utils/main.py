@@ -1,7 +1,7 @@
 from typing import cast
 import asyncclick as click
 import questionary
-from playwright.async_api import Page, async_playwright
+from playwright.async_api import Browser, BrowserContext, Locator, Page, async_playwright
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -17,14 +17,19 @@ load_dotenv()  # take environment variables
 logger = logging.getLogger(__name__)
 
 Selection = Enum('Selection', ['TREE_WALK', 'TREE_LEAF', 'ITEM_SELECTED'])
+CAMPUSONLINE_LOC = 'li.treelist > a'
 
-async def selection_or_walk(options):
-    walkstr = 'Walk the Tree from here'
-    options = [questionary.Choice(title=walkstr, checked=True)] + [questionary.Choice(opt.strip()) for opt in options]
+async def selection_or_walk(locators: list[Locator]):
+    option_walk = questionary.Choice(title= 'Walk the Tree from here', value=Selection.TREE_WALK, checked=True)
+    options = [option_walk] + [questionary.Choice(title=await loc.inner_text(), value=loc) for loc in locators]
     selection = await questionary.select(choices=options, message='Select one of the following options').ask_async()
-    if selection == walkstr: return Selection.TREE_WALK , None
-    return Selection.ITEM_SELECTED, selection
-
+    if selection == Selection.TREE_WALK:
+        return selection, None
+    else: return Selection.ITEM_SELECTED, selection
+    
+async def walk_tree(page: Page, browser: Browser, context: BrowserContext, path: list[str]=[]):
+    locators = await page.locator(CAMPUSONLINE_LOC).all()
+    
 async def run_playwright(headless: bool):
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=headless)
@@ -66,10 +71,12 @@ async def cli(debug, log_level):
 @browser_options
 async def campusonline(username, password, headless):
     '''
-    Interact with the module tree in Campusonline.
+    Export modules from Campusonline as CSV.
     '''
+    path: list[str] = []
     async for browser, context in run_playwright(headless):
         page = await context.new_page()
+        # login
         await page.goto("https://campusonline.uni-ulm.de")
         await page.get_by_role("textbox", name="Benutzerkennung").click()
         await page.get_by_role("textbox", name="Benutzerkennung").fill(username)
@@ -77,10 +84,18 @@ async def campusonline(username, password, headless):
         await page.get_by_role("button", name="Anmelden").click()
         await page.get_by_role("link", name="Studium").click()
         await page.get_by_role("link", name="Modulbeschreibungen ansehen").click()
-        options = await page.locator('css=li.treelist').all_inner_texts()
-        selection = await selection_or_walk(options)
-        print(selection)
-        sleep(2)
+        sel = 0
+        # first select your study path
+        while True:
+            options = await page.locator(CAMPUSONLINE_LOC).all()
+            sel, loc= await selection_or_walk(options)
+            if sel == Selection.TREE_WALK:
+                break
+            loc = cast(Locator, loc)
+            path.append(await loc.inner_text())
+            await loc.click()
+        # then walk tree
+        courses = await walk_tree(page, browser, context)
     return
 
 @cli.command()
