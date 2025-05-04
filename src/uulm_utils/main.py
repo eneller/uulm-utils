@@ -1,3 +1,4 @@
+import csv
 from typing import cast
 import asyncclick as click
 import questionary
@@ -27,8 +28,15 @@ async def selection_or_walk(locators: list[Locator]):
         return selection, None
     else: return Selection.ITEM_SELECTED, selection
     
-async def walk_tree(page: Page, browser: Browser, context: BrowserContext, path: list[str]=[]):
-    locators = await page.locator(CAMPUSONLINE_LOC).all()
+async def walk_tree(loc: Locator, browser: Browser, context: BrowserContext, path: list[str]=[]):
+    page = await browser.new_page()
+    locators = await loc.locator(CAMPUSONLINE_LOC).all()
+    if len(locators) == 0:
+    # at single course level
+        await loc.locator('a:nth-child(9)').click()
+        await asyncio.sleep(20)
+        return [dict()]
+    return [item for l in locators for item in (await walk_tree(l, browser, context))]
     
 async def run_playwright(headless: bool):
     async with async_playwright() as playwright:
@@ -68,8 +76,9 @@ async def cli(debug, log_level):
     if(debug): logger.setLevel(logging.DEBUG)
 
 @cli.command()
+@click.argument('filename', type=click.Path())
 @browser_options
-async def campusonline(username, password, headless):
+async def campusonline(filename, username, password, headless):
     '''
     Export modules from Campusonline as CSV.
     '''
@@ -93,9 +102,12 @@ async def campusonline(username, password, headless):
                 break
             loc = cast(Locator, loc)
             path.append(await loc.inner_text())
-            await loc.click()
         # then walk tree
-        courses = await walk_tree(page, browser, context)
+        courses = await walk_tree(loc, browser, context)
+        with open(filename, "w", newline="") as f:
+            w = csv.DictWriter(f, courses.keys())
+            w.writeheader()
+            w.writerow(courses)
     return
 
 @cli.command()
@@ -220,7 +232,7 @@ def grades(filename, target_lp:int):
         acc_note = acc_note + weight * row['grade']
         logger.debug('Added "%s" with %d/%d credits and grade %.1f', row['name'], weight, row['credits'], row['grade'])
     acc_note: float = acc_note / acc_lp
-    print(f'Final Grade: {acc_note} with {acc_lp}/{target_lp} credits')
+    print(f'Final Grade: {acc_note:.2f} with {acc_lp}/{target_lp} credits')
 
 if __name__ == "__main__":
     asyncio.run(cli.main())
