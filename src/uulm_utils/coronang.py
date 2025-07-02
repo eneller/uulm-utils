@@ -6,6 +6,8 @@ from typing import cast
 
 from uulm_utils.common import cli, fcfs_options, browser_options, run_playwright, logger
 
+CORONANG_VERSION='v1.8.00'
+CORONANG_URL="https://campusonline.uni-ulm.de/CoronaNG/user/mycorona.html"
 
 @cli.command()
 @fcfs_options
@@ -16,8 +18,6 @@ async def coronang(target_times, username, password, headless, offset):
     Automatically register for courses on CoronaNG by specifying one or more timestamps of the format "HH:MM:SS".
     Please beware that CoronaNG only allows one active session at all times.
     '''
-    CORONANG_VERSION='v1.8.00'
-    CORONANG_URL="https://campusonline.uni-ulm.de/CoronaNG/user/mycorona.html"
     logger.debug('Parsed input times as %s', target_times)
     before_seconds = timedelta(seconds=offset)
     target_times = sorted(list(target_times))
@@ -64,6 +64,7 @@ async def coronang(target_times, username, password, headless, offset):
                             await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("button").click()
                             await page.get_by_role("table", name="Ihre Beobachtungen. Sie kö").get_by_role("combobox").select_option("5")
                             await page.get_by_role("cell", name="An Markierten teilnehmen Ausf").get_by_role("button").click()
+                            #async with page.expect_response()
                             await page.reload()
                         # window ended?
                         # check window of offset before and after target

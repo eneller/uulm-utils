@@ -8,8 +8,10 @@ from enum import Enum
 import csv
 
 from uulm_utils.common import cli, browser_options, run_playwright
+
 Selection = Enum('Selection', ['TREE_WALK', 'TREE_LEAF', 'ITEM_SELECTED'])
 CAMPUSONLINE_LOC = 'li.treelist > a'
+CAMPUSONLINE_URL = 'https://campusonline.uni-ulm.de'
 
 async def selection_or_walk(locators: list[Locator]):
     option_walk = questionary.Choice(title= 'Walk the Tree from here', value=Selection.TREE_WALK, checked=True)
@@ -41,7 +43,7 @@ async def campusonline(filename, username, password, headless):
     async for browser, context in run_playwright(headless):
         page = await context.new_page()
         # login
-        await page.goto("https://campusonline.uni-ulm.de")
+        await page.goto(CAMPUSONLINE_URL)
         await page.get_by_role("textbox", name="Benutzerkennung").click()
         await page.get_by_role("textbox", name="Benutzerkennung").fill(username)
         await page.get_by_role("textbox", name="Passwort").fill(password)
