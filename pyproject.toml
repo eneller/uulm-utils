@@ -14,3 +14,11 @@ dependencies = [
 ]
 [project.scripts]
 uulm = "uulm_utils.main:cli"
+
+[tool.sonar]
+project-key="uulm_utils"
+
+[dependency-groups]
+dev = [
+    "pysonar>=1.1.0.2035",
+]
