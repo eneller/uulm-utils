@@ -12,7 +12,7 @@ CORONANG_URL="https://campusonline.uni-ulm.de/CoronaNG/user/mycorona.html"
 @cli.command()
 @fcfs_options
 @browser_options
-@click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send')
+@click.option('--offset', '-o', type=int, default=10, help='How many seconds before and after the target time to send. Default 10s')
 async def coronang(target_times, username, password, headless, offset):
     '''
     Automatically register for courses on CoronaNG by specifying one or more timestamps of the format "HH:MM:SS".
